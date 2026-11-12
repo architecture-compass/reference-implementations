@@ -4,11 +4,13 @@ Runnable code for the reference architectures on [**ArchitectureCompass**](https
 
 Each architecture is implemented in several languages against **one shared contract**, so you can compare how the same patterns look in each ecosystem. Everything runs locally with Docker Compose and needs no cloud account or API keys.
 
+The lakehouse is built on Apache Spark, whose streaming and Iceberg support is first-class only in Java and Python, so it has those two; [its README](lakehouse/#why-only-java-and-python) explains why.
+
 | Architecture | Java | Python | Go | Rust | C# | TypeScript | Read about it |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|---|
 | [Microservices](microservices/) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | [Microservices](https://architecturecompass.com/architectures/software-styles/microservices/) |
 | [RAG](rag/) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | [Retrieval-augmented generation](https://architecturecompass.com/architectures/ai-ml/rag/) |
-| [Lakehouse](lakehouse/) | | | | | | | [Lakehouse](https://architecturecompass.com/architectures/data/lakehouse/) |
+| [Lakehouse](lakehouse/) | ✓ | ✓ | | | | | [Lakehouse](https://architecturecompass.com/architectures/data/lakehouse/) |
 
 ## Quick start
 

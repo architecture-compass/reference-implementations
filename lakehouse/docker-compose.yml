@@ -1,0 +1,133 @@
+# Lakehouse reference implementation.
+#   docker compose up -d                       # infrastructure
+#   docker compose run --rm pipeline-python    # or pipeline-java: one pipeline run
+#   ./demo.sh python                           # or: ./demo.sh java
+
+x-s3-credentials: &s3-credentials
+  # SeaweedFS runs without authentication here; the S3 client still needs some values.
+  AWS_ACCESS_KEY_ID: lakehouse
+  AWS_SECRET_ACCESS_KEY: lakehouse
+  AWS_REGION: us-east-1
+
+x-pipeline: &pipeline
+  environment:
+    <<: *s3-credentials
+    KAFKA_BROKERS: kafka:9092
+    CDC_TOPIC: shop.public.orders
+    CHECKPOINT_DIR: /checkpoints
+  volumes:
+    - checkpoints:/checkpoints
+  depends_on:
+    iceberg-rest: { condition: service_started }
+    lake-bucket: { condition: service_completed_successfully }
+    debezium: { condition: service_started }
+
+services:
+  # ---- Source system ----
+  postgres:
+    image: postgres:16
+    command: ["postgres", "-c", "wal_level=logical"]   # needed for change data capture
+    environment:
+      POSTGRES_DB: shop
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports: ["5434:5432"]
+    volumes:
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "shop"]
+      interval: 2s
+      retries: 30
+
+  # ---- Change data capture and event stream ----
+  kafka:
+    image: apache/kafka:3.9.0
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_HEAP_OPTS: -Xmx512m -Xms512m
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"]
+      interval: 3s
+      retries: 40
+
+  debezium:
+    image: quay.io/debezium/server:3.7.1.Final
+    volumes:
+      - ./infra/debezium/application.properties:/debezium/config/application.properties:ro
+      - debezium-data:/debezium/data
+    depends_on:
+      postgres: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+
+  # ---- Object storage and table catalog ----
+  seaweedfs:
+    image: chrislusf/seaweedfs:4.53
+    command: ["server", "-dir=/data", "-s3", "-s3.port=8333", "-volume.max=0"]
+    volumes:
+      - lake-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9333/cluster/status >/dev/null"]
+      interval: 3s
+      retries: 40
+
+  lake-bucket:
+    image: chrislusf/seaweedfs:4.53
+    # Create the "lake" bucket once; later runs find it and do nothing.
+    entrypoint:
+      - sh
+      - -c
+      - >-
+        echo 's3.bucket.list' | weed shell -master=seaweedfs:9333 | grep -qw lake ||
+        echo 's3.bucket.create -name lake' | weed shell -master=seaweedfs:9333
+    depends_on:
+      seaweedfs: { condition: service_healthy }
+
+  iceberg-rest:
+    image: apache/iceberg-rest-fixture:1.10.1
+    user: root            # so the catalog can write its SQLite file to the named volume
+    environment:
+      <<: *s3-credentials
+      CATALOG_URI: jdbc:sqlite:file:/catalog/iceberg.db
+      CATALOG_WAREHOUSE: s3://lake/
+      CATALOG_IO__IMPL: org.apache.iceberg.aws.s3.S3FileIO
+      CATALOG_S3_ENDPOINT: http://seaweedfs:8333
+      CATALOG_S3_PATH__STYLE__ACCESS: "true"
+    ports: ["8181:8181"]
+    volumes:
+      - catalog:/catalog
+    depends_on:
+      seaweedfs: { condition: service_healthy }
+
+  # ---- Pipelines: one per language, run on demand ----
+  pipeline-python:
+    <<: *pipeline
+    build: { context: ., dockerfile: python/Dockerfile }
+    profiles: [python]
+
+  pipeline-java:
+    <<: *pipeline
+    build: { context: ., dockerfile: java/Dockerfile }
+    profiles: [java]
+
+  # ---- Independent checker: reads the same tables with PyIceberg, no Spark ----
+  check:
+    build: ./check
+    environment:
+      <<: *s3-credentials
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/shop
+    profiles: [tools]
+
+volumes:
+  debezium-data:
+  lake-data:
+  catalog:
+  checkpoints:
