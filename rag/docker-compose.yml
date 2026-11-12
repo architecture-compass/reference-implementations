@@ -1,0 +1,82 @@
+# Run one language at a time:
+#   docker compose --profile python up -d --build
+# Profiles: java, python, go, rust, dotnet, node
+# The first start downloads about 2.2 GB of models; later starts reuse them.
+
+x-api: &api
+  environment:
+    PORT: "8080"
+    DATABASE_URL: postgres://app:app@postgres:5432/rag
+    OLLAMA_URL: http://ollama:11434
+    EMBED_MODEL: nomic-embed-text
+    CHAT_MODEL: qwen2.5:3b
+    DOCS_DIR: /docs
+    MIN_SIMILARITY: "0.55"
+  volumes:
+    - ./docs:/docs:ro
+  ports: ["8090:8080"]
+  depends_on:
+    postgres: { condition: service_healthy }
+    ollama-init: { condition: service_completed_successfully }
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: rag
+    volumes:
+      - ./infra/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports: ["5433:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d rag"]
+      interval: 2s
+      retries: 30
+
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama-models:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 3s
+      retries: 30
+
+  # Downloads the two models once; later starts find them already present.
+  ollama-init:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama: { condition: service_healthy }
+    environment:
+      OLLAMA_HOST: ollama:11434
+    entrypoint: ["/bin/sh", "-c", "ollama pull nomic-embed-text && ollama pull qwen2.5:3b"]
+
+  api-java:
+    <<: *api
+    build: ./java
+    profiles: [java]
+  api-python:
+    <<: *api
+    build: ./python
+    profiles: [python]
+  api-go:
+    <<: *api
+    build: ./go
+    profiles: [go]
+  api-rust:
+    <<: *api
+    build: ./rust
+    profiles: [rust]
+  api-dotnet:
+    <<: *api
+    build: ./dotnet
+    profiles: [dotnet]
+  api-node:
+    <<: *api
+    build: ./node
+    profiles: [node]
+
+volumes:
+  ollama-models:
+    name: architecturecompass-ollama

@@ -7,7 +7,7 @@ Each architecture is implemented in several languages against **one shared contr
 | Architecture | Java | Python | Go | Rust | C# | TypeScript | Read about it |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|---|
 | [Microservices](microservices/) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | [Microservices](https://architecturecompass.com/architectures/software-styles/microservices/) |
-| [RAG](rag/) | | | | | | | [Retrieval-augmented generation](https://architecturecompass.com/architectures/ai-ml/rag/) |
+| [RAG](rag/) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | [Retrieval-augmented generation](https://architecturecompass.com/architectures/ai-ml/rag/) |
 | [Lakehouse](lakehouse/) | | | | | | | [Lakehouse](https://architecturecompass.com/architectures/data/lakehouse/) |
 
 ## Quick start
