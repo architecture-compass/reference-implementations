@@ -89,6 +89,40 @@ docker compose run --rm check state
 
 Reset everything with `docker compose --profile '*' down -v`.
 
+## Break it yourself
+
+Run the demo once, then try these with `docker compose up -d` running.
+
+**1. Stop change data capture for a while.** Changes made while Debezium is down are not lost: Postgres keeps them in its write-ahead log until Debezium catches up.
+
+```bash
+docker compose stop debezium
+docker compose exec postgres psql -U postgres -d shop -c "UPDATE orders SET status = 'SHIPPED' WHERE order_id = 'o-1004'"
+docker compose start debezium
+docker compose run --rm pipeline-python          # bronze gains the event; silver shows SHIPPED
+docker compose run --rm check state
+```
+
+**2. Trip the data-quality gate.** Insert an order with a negative amount in a new currency, then run the pipeline. Silver accepts the change, but gold refuses to publish (`gold: 1 rows failed data-quality checks; nothing published`) and the run exits with an error. Delete the bad order and run again to recover.
+
+```bash
+docker compose exec postgres psql -U postgres -d shop -c \
+  "INSERT INTO orders VALUES ('o-2001', 'c-9', 'test@example.com', 'PAID', -50.00, 'GBP', now())"
+docker compose run --rm pipeline-python          # fails at the gold step
+docker compose exec postgres psql -U postgres -d shop -c "DELETE FROM orders WHERE order_id = 'o-2001'"
+docker compose run --rm pipeline-python          # publishes again
+```
+
+**3. Travel back in time.** Every commit is a snapshot you can still query.
+
+```bash
+SQL="docker compose run --rm --entrypoint /opt/spark/bin/spark-sql pipeline-python -e"
+$SQL "SELECT snapshot_id, committed_at, operation FROM silver.orders.snapshots ORDER BY committed_at"
+$SQL "SELECT order_id, status FROM silver.orders VERSION AS OF <snapshot_id> WHERE order_id = 'o-1004'"
+```
+
+**4. Run the pipeline twice in a row.** The second run finds nothing new: bronze gains no rows and silver gets no new snapshot, because each streaming step records its progress in a checkpoint.
+
 ## The two implementations
 
 | Language | Stack | Code |

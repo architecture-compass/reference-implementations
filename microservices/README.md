@@ -63,6 +63,35 @@ curl -X POST localhost:8081/orders -H 'Content-Type: application/json' \
 curl localhost:8081/orders/<orderId>
 ```
 
+## Break it yourself
+
+The demo checks the happy path and a few failures. These experiments let you watch the patterns work. Start any language profile first, for example `docker compose --profile go up -d --build`.
+
+**1. Take the event broker away.** Orders still accepts orders, because the order and its event are saved in one transaction; the outbox relay publishes the event once Kafka is back.
+
+```bash
+docker compose stop kafka
+curl -s -X POST localhost:8081/orders -H 'Content-Type: application/json' \
+     -H 'Idempotency-Key: try-1' -d '{"customerId":"c-1","sku":"SKU-2","quantity":1}'
+# The order is PENDING, and its event waits in the outbox:
+docker compose exec postgres psql -U app -d orders -c "SELECT count(*) FROM outbox WHERE published_at IS NULL"
+docker compose start kafka
+# Within a few seconds the outbox is empty and the order becomes CONFIRMED:
+curl -s localhost:8081/orders/<orderId>
+```
+
+**2. Stop the Payments service.** Orders keep arriving and stay `PENDING`. When Payments restarts, it picks up where it left off and confirms them.
+
+```bash
+docker compose stop payments-go        # use your language's service name
+# place an order as above, then:
+docker compose start payments-go
+```
+
+**3. Send the same request twice.** Repeat any order request with the same `Idempotency-Key` header and you get the original order back, not a second one.
+
+**4. Make the catalog disappear.** With `docker compose stop catalog`, an order for a SKU Orders has seen before still succeeds using the last known price; a SKU it has never seen returns `503`. After three failures the circuit breaker opens and calls fail fast for 10 seconds.
+
 ## The six implementations
 
 | Language | Stack | Orders | Payments |
