@@ -1,12 +1,12 @@
 # Microservices reference implementation
 
-The ordering platform from the [ArchitectureCompass microservices page](https://architecturecompass.com/architectures/software-styles/microservices/#reference-implementation), built six times: in **Java, Python, Go, Rust, C# and TypeScript**. Every version implements the same [contract](CONTRACT.md) and passes the same [demo](demo.sh), so you can compare languages line by line.
+The ordering platform from the [ArchitectureCompass microservices page](https://architecturecompass.com/architectures/software-styles/microservices/#reference-implementation), built six times: in **[Java](https://dev.java/), [Python](https://www.python.org/), [Go](https://go.dev/), [Rust](https://www.rust-lang.org/), [C#](https://learn.microsoft.com/dotnet/csharp/) and [TypeScript](https://www.typescriptlang.org/)**. Every version implements the same [contract](CONTRACT.md) and passes the same [demo](demo.sh), so you can compare languages line by line.
 
 ## What it demonstrates
 
 | Pattern | Where you see it |
 |---|---|
-| **Transactional outbox** | The order and its `OrderPlaced` event are written in one database transaction; a relay publishes them to Kafka |
+| **Transactional outbox** | The order and its `OrderPlaced` event are written in one database transaction; a relay publishes them to [Kafka](https://kafka.apache.org/) |
 | **Idempotent consumers** | Every event ID is recorded with the change it caused; redelivered events are ignored |
 | **At-most-once payment** | A unique constraint guarantees one payment per order, even if events are duplicated |
 | **Idempotent API** | Repeating `POST /orders` with the same `Idempotency-Key` returns the original order |
@@ -27,7 +27,7 @@ flowchart LR
 
 ## Run it
 
-You need Docker with Compose. Pick a language profile:
+You need [Docker](https://www.docker.com/) with Compose. Pick a language profile:
 
 ```bash
 docker compose --profile java up -d --build     # or: python, go, rust, dotnet, node
@@ -67,12 +67,12 @@ curl localhost:8081/orders/<orderId>
 
 | Language | Stack | Orders | Payments |
 |---|---|---|---|
-| **Java 21** | Spring Boot 4, JdbcTemplate, Spring Kafka, Resilience4j | [`java/orders`](java/orders/src/main/java/com/architecturecompass/orders) | [`java/payments`](java/payments/src/main/java/com/architecturecompass/payments) |
-| **Python 3.12** | FastAPI, psycopg 3, confluent-kafka, pybreaker | [`python/orders/app.py`](python/orders/app.py) | [`python/payments/app.py`](python/payments/app.py) |
-| **Go 1.25** | net/http, pgx, kafka-go, gobreaker | [`go/orders/main.go`](go/orders/main.go) | [`go/payments/main.go`](go/payments/main.go) |
-| **Rust** | axum, sqlx, rdkafka, reqwest | [`rust/orders/src`](rust/orders/src) | [`rust/payments/src`](rust/payments/src) |
-| **C# (.NET 10)** | ASP.NET Core minimal APIs, Npgsql, Confluent.Kafka, Polly | [`dotnet/Orders`](dotnet/Orders) | [`dotnet/Payments`](dotnet/Payments) |
-| **TypeScript (Node 22)** | Fastify, node-postgres, KafkaJS | [`node/orders/src`](node/orders/src) | [`node/payments/src`](node/payments/src) |
+| **Java 21** | [Spring Boot](https://spring.io/projects/spring-boot) 4, JdbcTemplate, [Spring Kafka](https://spring.io/projects/spring-kafka), [Resilience4j](https://resilience4j.readme.io/) | [`java/orders`](java/orders/src/main/java/com/architecturecompass/orders) | [`java/payments`](java/payments/src/main/java/com/architecturecompass/payments) |
+| **Python 3.12** | [FastAPI](https://fastapi.tiangolo.com/), [psycopg 3](https://www.psycopg.org/psycopg3/), [confluent-kafka](https://github.com/confluentinc/confluent-kafka-python), [pybreaker](https://github.com/danielfm/pybreaker) | [`python/orders/app.py`](python/orders/app.py) | [`python/payments/app.py`](python/payments/app.py) |
+| **Go 1.25** | net/http, [pgx](https://github.com/jackc/pgx), [kafka-go](https://github.com/segmentio/kafka-go), [gobreaker](https://github.com/sony/gobreaker) | [`go/orders/main.go`](go/orders/main.go) | [`go/payments/main.go`](go/payments/main.go) |
+| **Rust** | [axum](https://github.com/tokio-rs/axum), [sqlx](https://github.com/launchbadge/sqlx), [rdkafka](https://github.com/fede1024/rust-rdkafka), [reqwest](https://github.com/seanmonstar/reqwest) | [`rust/orders/src`](rust/orders/src) | [`rust/payments/src`](rust/payments/src) |
+| **C# ([.NET](https://dotnet.microsoft.com/) 10)** | [ASP.NET Core](https://dotnet.microsoft.com/apps/aspnet) minimal APIs, [Npgsql](https://www.npgsql.org/), [Confluent.Kafka](https://github.com/confluentinc/confluent-kafka-dotnet), [Polly](https://www.pollydocs.org/) | [`dotnet/Orders`](dotnet/Orders) | [`dotnet/Payments`](dotnet/Payments) |
+| **TypeScript ([Node](https://nodejs.org/) 22)** | [Fastify](https://fastify.dev/), [node-postgres](https://node-postgres.com/), [KafkaJS](https://kafka.js.org/) | [`node/orders/src`](node/orders/src) | [`node/payments/src`](node/payments/src) |
 
 Where to look in each one:
 
@@ -89,7 +89,7 @@ These samples keep infrastructure minimal so they run on a laptop. In production
 - **A real payment provider**, called with the order ID as its idempotency key so a retried call can never charge twice.
 - **Dead-letter topics** for events that keep failing, instead of retrying forever.
 - **Schema registry and versioning** for event contracts.
-- **Distributed tracing** with OpenTelemetry across HTTP calls and Kafka messages.
+- **Distributed tracing** with [OpenTelemetry](https://opentelemetry.io/) across HTTP calls and Kafka messages.
 - **One language per topic producer.** The Kafka clients use different default partitioners, so mixing languages that publish to the same topic can split one order's events across partitions.
 
 ## Files

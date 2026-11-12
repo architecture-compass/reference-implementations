@@ -1,6 +1,6 @@
 # RAG reference implementation
 
-The policy assistant from the [ArchitectureCompass RAG page](https://architecturecompass.com/architectures/ai-ml/rag/#reference-implementation), built six times: in **Java, Python, Go, Rust, C# and TypeScript**. Every version implements the same [contract](CONTRACT.md), uses the same [retrieval query](retrieval.sql) and prompt, and passes the same [demo](demo.sh).
+The policy assistant from the [ArchitectureCompass RAG page](https://architecturecompass.com/architectures/ai-ml/rag/#reference-implementation), built six times: in **[Java](https://dev.java/), [Python](https://www.python.org/), [Go](https://go.dev/), [Rust](https://www.rust-lang.org/), [C#](https://learn.microsoft.com/dotnet/csharp/) and [TypeScript](https://www.typescriptlang.org/)**. Every version implements the same [contract](CONTRACT.md), uses the same [retrieval query](retrieval.sql) and prompt, and passes the same [demo](demo.sh).
 
 Everything runs locally. The models are served by [Ollama](https://ollama.com/), so you need no API key and no document leaves your machine.
 
@@ -10,7 +10,7 @@ Everything runs locally. The models are served by [Ollama](https://ollama.com/),
 |---|---|
 | **Section-aware chunking** | Each `##` section becomes a chunk, prefixed with the document title and section name so it makes sense on its own |
 | **Incremental ingestion** | A hash of model + permissions + content decides what to re-embed; re-running ingestion on unchanged documents embeds nothing |
-| **Hybrid search** | Vector similarity (pgvector, HNSW) and Postgres full-text search, merged with reciprocal rank fusion |
+| **Hybrid search** | Vector similarity ([pgvector](https://github.com/pgvector/pgvector), HNSW) and [Postgres](https://www.postgresql.org/) full-text search, merged with reciprocal rank fusion |
 | **Permission-aware retrieval** | Chunks carry `allowed_groups`; the filter is applied *inside* the query, so the model never sees what the user can't |
 | **Grounded answers with citations** | The model may only use numbered passages and must cite them as `[n]`; citations are mapped back to document and section |
 | **Refusal** | Below a similarity threshold the service refuses without calling the model; the model can also answer `NOT_FOUND` |
@@ -28,7 +28,7 @@ flowchart LR
 
 ## Run it
 
-You need Docker with Compose and about 4 GB of free memory. Pick a language profile:
+You need [Docker](https://www.docker.com/) with Compose and about 4 GB of free memory. Pick a language profile:
 
 ```bash
 docker compose --profile python up -d --build    # or: java, go, rust, dotnet, node
@@ -85,12 +85,12 @@ Add or edit a file in [`docs/`](docs/) and call `POST /ingest` again: only the c
 
 | Language | Stack | Code |
 |---|---|---|
-| **Java 21** | Spring Boot 4, JdbcTemplate, RestClient | [`java/src/main/java/…/rag`](java/src/main/java/com/architecturecompass/rag) |
-| **Python 3.12** | FastAPI, psycopg 3, httpx | [`python/app.py`](python/app.py) |
-| **Go 1.25** | net/http, pgx | [`go/main.go`](go/main.go) |
-| **Rust** | axum, sqlx, reqwest | [`rust/src/main.rs`](rust/src/main.rs) |
-| **C# (.NET 10)** | ASP.NET Core minimal APIs, Npgsql, HttpClient | [`dotnet`](dotnet) |
-| **TypeScript (Node 22)** | Fastify, node-postgres, fetch | [`node/src/main.ts`](node/src/main.ts) |
+| **Java 21** | [Spring Boot](https://spring.io/projects/spring-boot) 4, JdbcTemplate, RestClient | [`java/src/main/java/…/rag`](java/src/main/java/com/architecturecompass/rag) |
+| **Python 3.12** | [FastAPI](https://fastapi.tiangolo.com/), [psycopg 3](https://www.psycopg.org/psycopg3/), [httpx](https://www.python-httpx.org/) | [`python/app.py`](python/app.py) |
+| **Go 1.25** | net/http, [pgx](https://github.com/jackc/pgx) | [`go/main.go`](go/main.go) |
+| **Rust** | [axum](https://github.com/tokio-rs/axum), [sqlx](https://github.com/launchbadge/sqlx), [reqwest](https://github.com/seanmonstar/reqwest) | [`rust/src/main.rs`](rust/src/main.rs) |
+| **C# ([.NET](https://dotnet.microsoft.com/) 10)** | [ASP.NET Core](https://dotnet.microsoft.com/apps/aspnet) minimal APIs, [Npgsql](https://www.npgsql.org/), HttpClient | [`dotnet`](dotnet) |
+| **TypeScript ([Node](https://nodejs.org/) 22)** | [Fastify](https://fastify.dev/), [node-postgres](https://node-postgres.com/), fetch | [`node/src/main.ts`](node/src/main.ts) |
 
 None of them uses an LLM framework. Each talks to Ollama's HTTP API and to Postgres directly, so every step of the pipeline is visible in a few hundred lines.
 

@@ -1,18 +1,18 @@
 # Lakehouse reference implementation
 
-The order-analytics lakehouse from the [ArchitectureCompass lakehouse page](https://architecturecompass.com/architectures/data/lakehouse/#reference-implementation), built in **Java and Python**. Both versions follow the same [contract](CONTRACT.md), write the same Apache Iceberg tables, and pass the same [demo](demo.sh).
+The order-analytics lakehouse from the [ArchitectureCompass lakehouse page](https://architecturecompass.com/architectures/data/lakehouse/#reference-implementation), built in **[Java](https://dev.java/) and [Python](https://www.python.org/)**. Both versions follow the same [contract](CONTRACT.md), write the same [Apache Iceberg](https://iceberg.apache.org/) tables, and pass the same [demo](demo.sh).
 
 Everything runs locally with open-source components: no cloud account needed.
 
 ## Why only Java and Python?
 
-The processing engine here is Apache Spark, and Spark's Structured Streaming and Iceberg integration are first-class only from the JVM (Java, Scala) and Python. Other languages either have no Spark binding or only a partial one (for example Spark Connect clients without `foreachBatch`). In a real lakehouse the *pipelines* are written in these languages, while *consumers* can use anything that reads Iceberg. The [checker](check/check.py) shows that: it reads the tables with PyIceberg and no Spark at all, and Trino, DuckDB, Snowflake or BigQuery could read them the same way.
+The processing engine here is [Apache Spark](https://spark.apache.org/), and Spark's [Structured Streaming](https://spark.apache.org/docs/latest/streaming/index.html) and Iceberg integration are first-class only from the JVM (Java, Scala) and Python. Other languages either have no Spark binding or only a partial one (for example Spark Connect clients without `foreachBatch`). In a real lakehouse the *pipelines* are written in these languages, while *consumers* can use anything that reads Iceberg. The [checker](check/check.py) shows that: it reads the tables with [PyIceberg](https://py.iceberg.apache.org/) and no Spark at all, and [Trino](https://trino.io/), DuckDB, Snowflake or [BigQuery](https://cloud.google.com/bigquery) could read them the same way.
 
 ## What it demonstrates
 
 | Pattern | Where you see it |
 |---|---|
-| **Change data capture** | Debezium reads the Postgres write-ahead log and streams every insert, update and delete to Kafka |
+| **Change data capture** | [Debezium](https://debezium.io/) reads the [Postgres](https://www.postgresql.org/) write-ahead log and streams every insert, update and delete to [Kafka](https://kafka.apache.org/) |
 | **Bronze / silver / gold** | Raw change events → one current row per order → daily revenue for dashboards |
 | **Incremental processing** | Streaming queries with an *available now* trigger and checkpoints: each run handles only what's new |
 | **Idempotent merges** | `MERGE` keeps the latest change per order and never lets an older event overwrite a newer row |
@@ -41,7 +41,7 @@ flowchart LR
 
 ## Run it
 
-You need Docker with Compose and about 4 GB of free memory.
+You need [Docker](https://www.docker.com/) with Compose and about 4 GB of free memory.
 
 ```bash
 ./demo.sh python      # or: ./demo.sh java
@@ -93,7 +93,7 @@ Reset everything with `docker compose --profile '*' down -v`.
 
 | Language | Stack | Code |
 |---|---|---|
-| **Python** | PySpark 4.1, Structured Streaming, Iceberg 1.12 | [`python/pipeline.py`](python/pipeline.py) |
+| **Python** | [PySpark](https://spark.apache.org/docs/latest/api/python/) 4.1, Structured Streaming, Iceberg 1.12 | [`python/pipeline.py`](python/pipeline.py) |
 | **Java 17** | Spark 4.1 Java API, Structured Streaming, Iceberg 1.12 | [`java/…/Pipeline.java`](java/src/main/java/com/architecturecompass/lakehouse/Pipeline.java) |
 
 Shared by both:
@@ -101,9 +101,9 @@ Shared by both:
 | Component | Used here | Role |
 |---|---|---|
 | Source database | PostgreSQL 16 with `wal_level=logical` | The application's orders table |
-| Change data capture | Debezium Server 3.7 | Streams row changes to Kafka |
+| Change data capture | [Debezium Server](https://debezium.io/documentation/reference/stable/operations/debezium-server.html) 3.7 | Streams row changes to Kafka |
 | Event stream | Apache Kafka 3.9 (KRaft) | Buffers change events |
-| Object storage | SeaweedFS 4.53 (S3 API) | Holds table data and metadata files |
+| Object storage | [SeaweedFS](https://github.com/seaweedfs/seaweedfs) 4.53 (S3 API) | Holds table data and metadata files |
 | Table catalog | Apache Iceberg REST catalog | Tracks tables, schemas and snapshots |
 | Processing | Apache Spark 4.1, local mode | Ingest, merge, aggregate, maintain |
 | Checker | PyIceberg | Reads the tables independently and compares with Postgres |
@@ -119,9 +119,9 @@ Where to look in each one:
 
 These samples run everything on one machine. In production you would also want:
 
-- **Continuous or scheduled runs.** Here you run the pipeline by hand. In production an orchestrator such as Airflow or Dagster runs it every few minutes, or the streaming steps run continuously with a processing-time trigger.
+- **Continuous or scheduled runs.** Here you run the pipeline by hand. In production an orchestrator such as [Airflow](https://airflow.apache.org/) or [Dagster](https://dagster.io/) runs it every few minutes, or the streaming steps run continuously with a processing-time trigger.
 - **Checkpoints on durable storage.** They live in a Docker volume here; put them in object storage next to the tables.
-- **A production catalog** such as Apache Polaris, Nessie, AWS Glue or Unity Catalog, with access policies per table and column. The REST catalog used here is Iceberg's test server.
+- **A production catalog** such as [Apache Polaris](https://polaris.apache.org/), [Nessie](https://projectnessie.org/), [AWS Glue](https://aws.amazon.com/glue/) or [Unity Catalog](https://www.databricks.com/product/unity-catalog), with access policies per table and column. The REST catalog used here is Iceberg's test server.
 - **A SQL engine for analysts** such as Trino, reading the same tables.
 - **Schema-change handling.** Debezium emits new columns automatically; detect them and evolve the Iceberg tables deliberately rather than dropping data silently.
 - **Reconciliation and freshness alerts.** Compare daily counts and totals with the source system, and alert when gold falls behind.
